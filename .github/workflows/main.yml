@@ -1,0 +1,73 @@
+name: Intelligent Operations with Amazon Bedrock
+
+# Enable manual trigger and pull request event trigger
+on:
+  workflow_dispatch:
+  pull_request:
+    types: [opened, synchronize, reopened]  # Added reopened to handle PR re-triggers
+
+# Avoid running the same workflow on the same branch concurrently
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    permissions:
+      # Required permissions for GitHub Actions
+      id-token: write           # For authenticating with AWS
+      contents: write           # For reading and pushing to the repo
+      pull-requests: write      # For writing PR comments
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '20'
+
+    # Install necessary dependencies for custom GitHub actions
+    - name: Install dependencies @actions/core and @actions/github
+      run: |
+        npm install @actions/core
+        npm install @actions/github
+      shell: bash
+
+    # Check if required dependencies are installed
+    - name: Check if required dependencies are installed
+      run: |
+        npm list @actions/core
+        npm list @actions/github
+      shell: bash
+
+    # Debug to check if the GitHub token is set
+    - name: Debug GitHub Token
+      run: |
+        if [ -n "${{ secrets.GITHUB_TOKEN }}" ]; then
+          echo "GitHub Token is set"
+        else
+          echo "GitHub Token is not set"
+        fi
+
+    # Assume the specified IAM role and set up AWS credentials
+    - name: Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }} # Ensure this secret is set in your repo
+        aws-region: us-east-1
+
+    # Run the Intelligent GitHub Actions from your forked repository
+    - name: Intelligent GitHub Actions
+      uses: Tanuj-Koduri/simple-reactjs-app@main
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}  # Automatically provided by GitHub
+        aws-region: us-east-1                      # AWS region for Bedrock
+        model-id: anthropic.claude-3-sonnet-20240229-v1:0  # Bedrock model ID
+        generate-code-review-exclude-files: '*.md,*.json,*.yml,*.yaml'
+        generate-code-review-level: 'detailed'
+        generate-code-review: 'true'
+        generate-pr-description: 'true'
+        generate-unit-test: 'true'
+        output-language: 'en'
